@@ -1,3 +1,5 @@
+// @ts-nocheck
+
 import config from "./setup.ts";
 import { Application, BaseHandler } from "../test_deps.ts";
 import { assertEquals, assertExists } from "../test_deps.ts";

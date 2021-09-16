@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { Status } from "../deps.ts";
 import { validateJWT } from "../helpers/jwtutils.ts";
 import log from "../helpers/log.ts";

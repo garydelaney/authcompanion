@@ -1,4 +1,5 @@
 import {
+  base64,
   create,
   decode,
   getNumericDate,
@@ -12,7 +13,29 @@ import { db } from "../db/db.ts";
 import log from "./log.ts";
 import config from "../config.ts";
 
-const { ACCESSTOKENKEY, REFRESHTOKENKEY } = config;
+const { ACCESSTOKENKEYPATH, REFRESHTOKENKEYPATH } = config;
+
+async function importKey(path: any) {
+  const readKey = await Deno.readTextFile(path);
+
+  const binaryDer = base64.decode(readKey).buffer;
+
+  let key = await crypto.subtle.importKey(
+    "raw",
+    binaryDer,
+    {
+      name: "HMAC",
+      hash: { name: "SHA-512" },
+    },
+    true,
+    ["sign", "verify"],
+  );
+
+  return key;
+}
+
+let ACCESSTOKENKEY = await importKey(ACCESSTOKENKEYPATH);
+let REFRESHTOKENKEY = await importKey(REFRESHTOKENKEYPATH);
 
 export async function makeAccesstoken(result: any) {
   var date = new Date();
@@ -22,7 +45,7 @@ export async function makeAccesstoken(result: any) {
   if (key != undefined) {
     const user = result.rows[0];
 
-    const jwtheader: Header = { alg: "HS256", typ: "JWT" };
+    const jwtheader: Header = { alg: "HS512", typ: "JWT" };
     const jwtpayload: Payload = {
       id: user.uuid,
       name: user.name,
@@ -57,7 +80,7 @@ export async function makeRefreshtoken(result: any) {
       user.refresh_token,
     );
 
-    const jwtheader: Header = { alg: "HS256", typ: "JWT" };
+    const jwtheader: Header = { alg: "HS512", typ: "JWT" };
     const jwtpayload: Payload = {
       id: user.uuid,
       name: user.name,
@@ -74,7 +97,7 @@ export async function makeRefreshtoken(result: any) {
 export async function validateRefreshToken(jwt: any) {
   try {
     if (REFRESHTOKENKEY != undefined) {
-      await verify(jwt, REFRESHTOKENKEY, "HS256");
+      await verify(jwt, REFRESHTOKENKEY);
       let validatedToken = await decode(jwt);
       return validatedToken;
     }
@@ -89,7 +112,7 @@ export async function validateJWT(jwt: any) {
   try {
     if (ACCESSTOKENKEY != undefined) {
       //verify the jwt (includes signature validation) otherwise throw error
-      await verify(jwt, ACCESSTOKENKEY, "HS256");
+      await verify(jwt, ACCESSTOKENKEY);
 
       //decode the jwt (without signature verfication) otherwise throw error
       let validatedToken = await decode(jwt);
@@ -110,7 +133,7 @@ export async function makeRecoverytoken(result: any) {
   if (ACCESSTOKENKEY != undefined) {
     const user = result.rows[0];
 
-    const jwtheader: Header = { alg: "HS256", typ: "JWT" };
+    const jwtheader: Header = { alg: "HS512", typ: "JWT" };
     const jwtpayload: Payload = {
       id: user.uuid,
       name: user.name,
