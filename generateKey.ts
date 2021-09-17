@@ -1,10 +1,10 @@
 // @ts-nocheck
 import { base64 } from "./deps.ts";
 
-let key = await crypto.subtle.generateKey(
+const key = await crypto.subtle.generateKey(
   {
     name: "HMAC",
-    hash: { name: "SHA-512" },
+    hash: "SHA-512",
   },
   true,
   ["sign", "verify"],
@@ -16,4 +16,4 @@ const exportbase64 = base64.encode(exported);
 
 await Deno.writeTextFile("./keyfile", exportbase64);
 
-console.log("Key was written");
+console.log("Keyfile was seeded");

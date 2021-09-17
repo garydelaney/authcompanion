@@ -13,19 +13,19 @@ import { db } from "../db/db.ts";
 import log from "./log.ts";
 import config from "../config.ts";
 
-const { ACCESSTOKENKEYPATH, REFRESHTOKENKEYPATH } = config;
+const { KEYPATH } = config;
 
 async function importKey(path: any) {
   const readKey = await Deno.readTextFile(path);
 
   const binaryDer = base64.decode(readKey).buffer;
 
-  let key = await crypto.subtle.importKey(
+  const key = await crypto.subtle.importKey(
     "raw",
     binaryDer,
     {
       name: "HMAC",
-      hash: { name: "SHA-512" },
+      hash: "SHA-512",
     },
     true,
     ["sign", "verify"],
@@ -34,14 +34,13 @@ async function importKey(path: any) {
   return key;
 }
 
-let ACCESSTOKENKEY = await importKey(ACCESSTOKENKEYPATH);
-let REFRESHTOKENKEY = await importKey(REFRESHTOKENKEYPATH);
+const cryptoKey = await importKey(KEYPATH);
 
 export async function makeAccesstoken(result: any) {
   var date = new Date();
   date.setHours(date.getHours() + 4);
 
-  const key = ACCESSTOKENKEY;
+  const key = cryptoKey;
   if (key != undefined) {
     const user = result.rows[0];
 
@@ -66,10 +65,10 @@ export async function makeAccesstoken(result: any) {
 }
 
 export async function makeRefreshtoken(result: any) {
-  var date = new Date();
+  const date = new Date();
   date.setDate(date.getDate() + 30 * 2);
 
-  if (REFRESHTOKENKEY != undefined) {
+  if (cryptoKey != undefined) {
     const user = result.rows[0];
 
     const newjtiClaim = v4.generate();
@@ -89,39 +88,42 @@ export async function makeRefreshtoken(result: any) {
       exp: getNumericDate(date),
     };
 
-    return await create(jwtheader, jwtpayload, REFRESHTOKENKEY);
+    return await create(jwtheader, jwtpayload, cryptoKey);
   }
   throw new Error("REFRESHTOKENKEY is invalid");
 }
 
 export async function validateRefreshToken(jwt: any) {
   try {
-    if (REFRESHTOKENKEY != undefined) {
-      await verify(jwt, REFRESHTOKENKEY);
-      let validatedToken = await decode(jwt);
-      return validatedToken;
+    if (cryptoKey != undefined) {
+      //verify the jwt (includes signature validation) otherwise throw error
+      const payload = await verify(jwt, cryptoKey);
+
+      decode(jwt);
+
+      return payload;
     }
-    throw new Error("REFRESHTOKENKEY is invalid");
+    throw new Error();
   } catch (err) {
-    log.warning(err);
-    throw new Error("Reresh Token is Invalid");
+    log.warning(err.message);
+    throw new Error("Refresh Token is Invalid");
   }
 }
 
 export async function validateJWT(jwt: any) {
   try {
-    if (ACCESSTOKENKEY != undefined) {
+    if (cryptoKey != undefined) {
       //verify the jwt (includes signature validation) otherwise throw error
-      await verify(jwt, ACCESSTOKENKEY);
+      const payload = await verify(jwt, cryptoKey);
 
       //decode the jwt (without signature verfication) otherwise throw error
-      let validatedToken = await decode(jwt);
+      await decode(jwt);
 
-      return validatedToken;
+      return payload;
     }
-    throw new Error("ACCESSTOKENKEY is invalid");
+    throw new Error();
   } catch (err) {
-    log.warning(err);
+    log.warning(err.message);
     throw new Error("Access Token is Invalid");
   }
 }
@@ -130,7 +132,7 @@ export async function makeRecoverytoken(result: any) {
   var date = new Date();
   date.setMinutes(date.getMinutes() + 10);
 
-  if (ACCESSTOKENKEY != undefined) {
+  if (cryptoKey != undefined) {
     const user = result.rows[0];
 
     const jwtheader: Header = { alg: "HS512", typ: "JWT" };
@@ -141,7 +143,7 @@ export async function makeRecoverytoken(result: any) {
       exp: getNumericDate(date),
     };
 
-    const resultingToken = await create(jwtheader, jwtpayload, ACCESSTOKENKEY);
+    const resultingToken = await create(jwtheader, jwtpayload, cryptoKey);
 
     return {
       token: resultingToken,
