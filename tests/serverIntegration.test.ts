@@ -1,8 +1,21 @@
 import { assertEquals } from "https://deno.land/std@0.107.0/testing/asserts.ts";
+import { db } from "../db/db.ts";
+
+async function purgeTestData() {
+  await db.queryObject(
+    "DELETE FROM users WHERE email = $1;",
+    "test_pass@authcompanion.com",
+  );
+
+  db.release();
+}
 
 Deno.test({
   name: "API Endpoint Test: /auth/register",
   async fn() {
+    // Clean out the test data from the DB
+    await purgeTestData();
+
     const requestBody = {
       "name": "Authy Person Testcases",
       "email": "test_pass@authcompanion.com",
@@ -82,20 +95,35 @@ Deno.test({
 Deno.test({
   name: "API Endpoint Test: /auth/users/me",
   async fn() {
+    const loginRequestBody = {
+      "email": "test_pass@authcompanion.com",
+      "password": "mysecretpass",
+    };
+
+    const loginResponse = await fetch(
+      "http://localhost:3002/api/v1/auth/login",
+      {
+        method: "POST", // *GET, POST, PUT, DELETE, etc.
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(loginRequestBody), // body data type must match "Content-Type" header
+      },
+    );
+
+    const loginres = await loginResponse.json(); // parses JSON response into native JavaScript objects
+
     const requestBody = {
       "name": "Authy Person Testcases",
       "email": "test_pass@authcompanion.com",
       "password": "mysecretpass",
     };
 
-    const token =
-      "eyJhbGciOiJIUzUxMiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjgzMWE1NDRmLTcxMTItNGFiMi1iZDkwLTZjY2ViOTZkMzU2ZCIsIm5hbWUiOiJBdXRoeSBQZXJzb24gVGVzdGNhc2VzIiwiZW1haWwiOiJ0ZXN0X3Bhc3NAYXV0aGNvbXBhbmlvbi5jb20iLCJleHAiOjE2MzE5MDg5MDd9.Dq8ohegpWUlZFoxEqkuyWDWB_QOQwVRbSQ6Av36eBVRsPNRSQ07kJ7vvr6wD0XvkXU_mkk0DRxrE09VbStRwqg";
-
     const response = await fetch("http://localhost:3002/api/v1/auth/users/me", {
       method: "POST", // *GET, POST, PUT, DELETE, etc.
       headers: {
         "Content-Type": "application/json",
-        "Authorization": `Bearer ${token}`,
+        "Authorization": `Bearer ${loginres.data.attributes.access_token}`,
       },
       body: JSON.stringify(requestBody), // body data type must match "Content-Type" header
     });
@@ -164,18 +192,36 @@ Deno.test({
 Deno.test({
   name: "API Endpoint Test: /auth/logout",
   async fn() {
-    const token =
-      "eyJhbGciOiJIUzUxMiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjgzMWE1NDRmLTcxMTItNGFiMi1iZDkwLTZjY2ViOTZkMzU2ZCIsIm5hbWUiOiJBdXRoeSBQZXJzb24gVGVzdGNhc2VzIiwiZW1haWwiOiJ0ZXN0X3Bhc3NAYXV0aGNvbXBhbmlvbi5jb20iLCJleHAiOjE2MzE5MDg5MDd9.Dq8ohegpWUlZFoxEqkuyWDWB_QOQwVRbSQ6Av36eBVRsPNRSQ07kJ7vvr6wD0XvkXU_mkk0DRxrE09VbStRwqg";
+    const requestBody = {
+      "email": "test_pass@authcompanion.com",
+      "password": "mysecretpass",
+    };
+
+    const loginResponse = await fetch(
+      "http://localhost:3002/api/v1/auth/login",
+      {
+        method: "POST", // *GET, POST, PUT, DELETE, etc.
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(requestBody), // body data type must match "Content-Type" header
+      },
+    );
+
+    const loginres = await loginResponse.json(); // parses JSON response into native JavaScript objects
 
     const response = await fetch("http://localhost:3002/api/v1/auth/logout", {
       method: "GET", // *GET, POST, PUT, DELETE, etc.
       headers: {
         "Content-Type": "application/json",
-        "Authorization": `Bearer ${token}`,
+        "Authorization": `Bearer ${loginres.data.attributes.access_token}`,
       },
     });
 
     await response.json();
+
+    // Clean out the test data from the DB
+    await purgeTestData();
 
     assertEquals(
       response.status,
