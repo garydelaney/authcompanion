@@ -1,3 +1,5 @@
+<h1 align="center">[Server is Deprecated] please see AuthCompanion2 @ https://github.com/authcompanion/authcompanion2 </h2>
+
 <p align="center">
   <a href="https://github.com/authcompanion/authcompanion" rel="noopener">
  <img width=200px height=200px src="https://i.imgur.com/VjsHEC9.png" alt="Project logo"></a>
@@ -22,8 +24,6 @@
 
 </div>
 <br />
-<p align="center">  <a href="https://docs.authcompanion.com/"> Read the AuthCompanion Documentation</a>
-</p>
 
 ---
 
